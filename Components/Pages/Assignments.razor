@@ -1,0 +1,390 @@
+@page "/assignments"
+@using AssetManagementApp.Models
+@using AssetManagementApp.Services
+@using System.ComponentModel.DataAnnotations
+@inject IAssetAssignmentService AssignmentService
+@inject IAssetService AssetService
+@inject IEmployeeService EmployeeService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Assignments - Asset Management System</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-arrow-left-right me-2"></i>Asset Assignments</h1>
+    <button class="btn btn-primary" @onclick="ShowAssignModal">
+        <i class="bi bi-plus-lg me-1"></i>New Assignment
+    </button>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Active Assignments</h6>
+                        <h3 class="mb-0">@activeAssignments.Count</h3>
+                    </div>
+                    <i class="bi bi-arrow-right-circle fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Total Assignments</h6>
+                        <h3 class="mb-0">@assignments.Count</h3>
+                    </div>
+                    <i class="bi bi-archive fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Assignments -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Active Assignments</h5>
+    </div>
+    <div class="card-body">
+        @if (loading)
+        {
+            <div class="d-flex justify-content-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (activeAssignments.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Assigned Date</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var assignment in activeAssignments)
+                        {
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>@assignment.Asset.AssetName</strong>
+                                        <br>
+                                        <small class="text-muted">@assignment.Asset.SerialNumber</small>
+                                    </div>
+                                </td>
+                                <td>@assignment.Employee.FullName</td>
+                                <td>@assignment.Employee.Department</td>
+                                <td>@assignment.AssignedDate.ToString("MMM dd, yyyy")</td>
+                                <td>@(assignment.Notes ?? "N/A")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" @onclick="() => ReturnAsset(assignment)">
+                                        <i class="bi bi-arrow-return-left"></i> Return
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <i class="bi bi-arrow-left-right display-4 text-muted"></i>
+                <h5 class="text-muted mt-2">No Active Assignments</h5>
+                <p class="text-muted">All assets are currently available.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Assignment History -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Assignment History</h5>
+    </div>
+    <div class="card-body">
+        @if (assignments.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Employee</th>
+                            <th>Assigned</th>
+                            <th>Returned</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var assignment in assignments.Take(20))
+                        {
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>@assignment.Asset.AssetName</strong>
+                                        <br>
+                                        <small class="text-muted">@assignment.Asset.SerialNumber</small>
+                                    </div>
+                                </td>
+                                <td>@assignment.Employee.FullName</td>
+                                <td>@assignment.AssignedDate.ToString("MMM dd, yyyy")</td>
+                                <td>@(assignment.ReturnedDate?.ToString("MMM dd, yyyy") ?? "N/A")</td>
+                                <td>
+                                    <span class="badge @(assignment.IsActive ? "bg-success" : "bg-secondary")">
+                                        @(assignment.IsActive ? "Active" : "Returned")
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (assignment.IsActive)
+                                    {
+                                        <button class="btn btn-sm btn-warning" @onclick="() => ReturnAsset(assignment)">
+                                            <i class="bi bi-arrow-return-left"></i> Return
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <i class="bi bi-clock-history display-4 text-muted"></i>
+                <h5 class="text-muted mt-2">No Assignment History</h5>
+                <p class="text-muted">No assignments have been made yet.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Assign Asset Modal -->
+@if (showAssignModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Asset</h5>
+                    <button type="button" class="btn-close" @onclick="HideAssignModal"></button>
+                </div>
+                <EditForm Model="assignmentModel" OnValidSubmit="CreateAssignment">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Select Asset</label>
+                            <InputSelect @bind-Value="assignmentModel.AssetId" class="form-select">
+                                <option value="0">-- Select Asset --</option>
+                                @foreach (var asset in availableAssets)
+                                {
+                                    <option value="@asset.Id">@asset.AssetName - @asset.SerialNumber</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => assignmentModel.AssetId" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select Employee</label>
+                            <InputSelect @bind-Value="assignmentModel.EmployeeId" class="form-select">
+                                <option value="0">-- Select Employee --</option>
+                                @foreach (var employee in employees)
+                                {
+                                    <option value="@employee.Id">@employee.FullName - @employee.Department</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => assignmentModel.EmployeeId" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes (Optional)</label>
+                            <InputTextArea @bind-Value="assignmentModel.Notes" class="form-control" rows="3" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HideAssignModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Assign Asset</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+<!-- Return Asset Modal -->
+@if (showReturnModal && returningAssignment != null)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Return Asset</h5>
+                    <button type="button" class="btn-close" @onclick="HideReturnModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>Asset:</strong> @returningAssignment.Asset.AssetName
+                    </div>
+                    <div class="mb-3">
+                        <strong>Employee:</strong> @returningAssignment.Employee.FullName
+                    </div>
+                    <div class="mb-3">
+                        <strong>Assigned:</strong> @returningAssignment.AssignedDate.ToString("MMM dd, yyyy")
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Return Notes (Optional)</label>
+                        <textarea @bind="returnNotes" class="form-control" rows="3" placeholder="Add any notes about the asset condition..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideReturnModal">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="ConfirmReturn">Return Asset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<AssetAssignment> assignments = new();
+    private List<AssetAssignment> activeAssignments = new();
+    private List<Asset> availableAssets = new();
+    private List<Employee> employees = new();
+    private bool loading = true;
+    private bool showAssignModal = false;
+    private bool showReturnModal = false;
+    private AssetAssignment? returningAssignment;
+    private string returnNotes = string.Empty;
+    private string errorMessage = string.Empty;
+    
+    private AssignmentModel assignmentModel = new();
+    
+    public class AssignmentModel
+    {
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select an asset")]
+        public int AssetId { get; set; }
+        
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select an employee")]
+        public int EmployeeId { get; set; }
+        
+        public string? Notes { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        try
+        {
+            var allAssignments = await AssignmentService.GetAllAssignmentsAsync();
+            assignments = allAssignments.ToList();
+            
+            var activeAssignmentsList = await AssignmentService.GetActiveAssignmentsAsync();
+            activeAssignments = activeAssignmentsList.ToList();
+            
+            var availableAssetsList = await AssetService.GetAvailableAssetsAsync();
+            availableAssets = availableAssetsList.ToList();
+            
+            var allEmployees = await EmployeeService.GetAllEmployeesAsync();
+            employees = allEmployees.Where(e => e.IsActive).ToList();
+        }
+        catch (Exception)
+        {
+            assignments = new List<AssetAssignment>();
+            activeAssignments = new List<AssetAssignment>();
+            availableAssets = new List<Asset>();
+            employees = new List<Employee>();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ShowAssignModal()
+    {
+        assignmentModel = new AssignmentModel();
+        errorMessage = string.Empty;
+        showAssignModal = true;
+    }
+
+    private void HideAssignModal()
+    {
+        showAssignModal = false;
+        assignmentModel = new AssignmentModel();
+        errorMessage = string.Empty;
+    }
+
+    private async Task CreateAssignment()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            await AssignmentService.AssignAssetAsync(assignmentModel.AssetId, assignmentModel.EmployeeId, assignmentModel.Notes);
+            await LoadData();
+            HideAssignModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void ReturnAsset(AssetAssignment assignment)
+    {
+        returningAssignment = assignment;
+        returnNotes = string.Empty;
+        showReturnModal = true;
+    }
+
+    private void HideReturnModal()
+    {
+        showReturnModal = false;
+        returningAssignment = null;
+        returnNotes = string.Empty;
+    }
+
+    private async Task ConfirmReturn()
+    {
+        if (returningAssignment != null)
+        {
+            try
+            {
+                await AssignmentService.ReturnAssetAsync(returningAssignment.Id, returnNotes);
+                await LoadData();
+                HideReturnModal();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", ex.Message);
+            }
+        }
+    }
+}

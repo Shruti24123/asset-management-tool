@@ -1,0 +1,422 @@
+@page "/assets"
+@using AssetManagementApp.Models
+@using AssetManagementApp.Services
+@inject IAssetService AssetService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Assets - Asset Management System</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-laptop me-2"></i>Assets</h1>
+    <button class="btn btn-primary" @onclick="ShowAddModal">
+        <i class="bi bi-plus-lg me-1"></i>Add Asset
+    </button>
+</div>
+
+<!-- Search and Filters -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="input-group">
+            <span class="input-group-text">
+                <i class="bi bi-search"></i>
+            </span>
+            <input @bind="searchTerm" @onkeyup="SearchAssets" class="form-control" placeholder="Search assets..." />
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select @onchange="FilterByStatus" class="form-select">
+            <option value="">All Status</option>
+            @foreach (var status in Enum.GetValues<AssetStatus>())
+            {
+                <option value="@status">@status</option>
+            }
+        </select>
+    </div>
+</div>
+
+<!-- Loading -->
+@if (loading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Assets Table -->
+    <div class="card">
+        <div class="card-body">
+            @if (assets.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Serial Number</th>
+                                <th>Status</th>
+                                <th>Condition</th>
+                                <th>Spare</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var asset in assets)
+                            {
+                                <tr>
+                                    <td>@asset.Id</td>
+                                    <td>@asset.AssetName</td>
+                                    <td>@asset.AssetType</td>
+                                    <td>@asset.SerialNumber</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(asset.Status)">
+                                            @asset.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetConditionBadgeClass(asset.Condition)">
+                                            @asset.Condition
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (asset.IsSpare)
+                                        {
+                                            <i class="bi bi-check-circle text-success"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-x-circle text-muted"></i>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" @onclick="() => EditAsset(asset)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" @onclick="() => ViewAssetDetails(asset)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" @onclick="() => DeleteAsset(asset)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-laptop display-1 text-muted"></i>
+                    <h5 class="text-muted mt-2">No assets found</h5>
+                    <p class="text-muted">Add your first asset to get started.</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Add/Edit Asset Modal -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingAsset.Id > 0 ? "Edit Asset" : "Add Asset")</h5>
+                    <button type="button" class="btn-close" @onclick="HideModal"></button>
+                </div>
+                <EditForm Model="editingAsset" OnValidSubmit="SaveAsset">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Asset Name</label>
+                                    <InputText @bind-Value="editingAsset.AssetName" class="form-control" />
+                                    <ValidationMessage For="() => editingAsset.AssetName" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Asset Type</label>
+                                    <InputText @bind-Value="editingAsset.AssetType" class="form-control" />
+                                    <ValidationMessage For="() => editingAsset.AssetType" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Make/Model</label>
+                                    <InputText @bind-Value="editingAsset.MakeModel" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Serial Number</label>
+                                    <InputText @bind-Value="editingAsset.SerialNumber" class="form-control" />
+                                    <ValidationMessage For="() => editingAsset.SerialNumber" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Purchase Date</label>
+                                    <InputDate @bind-Value="editingAsset.PurchaseDate" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Warranty Expiry Date</label>
+                                    <InputDate @bind-Value="editingAsset.WarrantyExpiryDate" class="form-control" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Condition</label>
+                                    <InputSelect @bind-Value="editingAsset.Condition" class="form-select">
+                                        @foreach (var condition in Enum.GetValues<AssetCondition>())
+                                        {
+                                            <option value="@condition">@condition</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Status</label>
+                                    <InputSelect @bind-Value="editingAsset.Status" class="form-select">
+                                        @foreach (var status in Enum.GetValues<AssetStatus>())
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="editingAsset.IsSpare" class="form-check-input" />
+                                <label class="form-check-label">Is Spare Asset</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Specifications</label>
+                            <InputTextArea @bind-Value="editingAsset.Specifications" class="form-control" rows="3" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            @(editingAsset.Id > 0 ? "Update" : "Create")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<Asset> assets = new();
+    private string searchTerm = string.Empty;
+    private bool loading = true;
+    private bool showModal = false;
+    private Asset editingAsset = new Asset();
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAssets();
+    }
+
+    private async Task LoadAssets()
+    {
+        loading = true;
+        try
+        {
+            var allAssets = await AssetService.GetAllAssetsAsync();
+            assets = allAssets.ToList();
+        }
+        catch (Exception)
+        {
+            assets = new List<Asset>();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SearchAssets()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await LoadAssets();
+        }
+        else
+        {
+            loading = true;
+            try
+            {
+                var searchResults = await AssetService.SearchAssetsAsync(searchTerm);
+                assets = searchResults.ToList();
+            }
+            catch (Exception)
+            {
+                assets = new List<Asset>();
+            }
+            finally
+            {
+                loading = false;
+            }
+        }
+    }
+
+    private async Task FilterByStatus(ChangeEventArgs e)
+    {
+        if (e.Value?.ToString() is string statusStr && Enum.TryParse<AssetStatus>(statusStr, out var status))
+        {
+            loading = true;
+            try
+            {
+                var filteredAssets = await AssetService.GetAssetsByStatusAsync(status);
+                assets = filteredAssets.ToList();
+            }
+            catch (Exception)
+            {
+                assets = new List<Asset>();
+            }
+            finally
+            {
+                loading = false;
+            }
+        }
+        else
+        {
+            await LoadAssets();
+        }
+    }
+
+    private void ShowAddModal()
+    {
+        editingAsset = new Asset();
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void EditAsset(Asset asset)
+    {
+        editingAsset = new Asset
+        {
+            Id = asset.Id,
+            AssetName = asset.AssetName,
+            AssetType = asset.AssetType,
+            MakeModel = asset.MakeModel,
+            SerialNumber = asset.SerialNumber,
+            PurchaseDate = asset.PurchaseDate,
+            WarrantyExpiryDate = asset.WarrantyExpiryDate,
+            Condition = asset.Condition,
+            Status = asset.Status,
+            IsSpare = asset.IsSpare,
+            Specifications = asset.Specifications
+        };
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void ViewAssetDetails(Asset asset)
+    {
+        // Navigate to asset details page or show details modal
+        // For now, just edit
+        EditAsset(asset);
+    }
+
+    private void HideModal()
+    {
+        showModal = false;
+        editingAsset = new Asset();
+        errorMessage = string.Empty;
+    }
+
+    private async Task SaveAsset()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+
+            if (editingAsset.Id > 0)
+            {
+                await AssetService.UpdateAssetAsync(editingAsset);
+            }
+            else
+            {
+                await AssetService.CreateAssetAsync(editingAsset);
+            }
+
+            await LoadAssets();
+            HideModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsset(Asset asset)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete {asset.AssetName}?"))
+        {
+            try
+            {
+                await AssetService.DeleteAssetAsync(asset.Id);
+                await LoadAssets();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", ex.Message);
+            }
+        }
+    }
+
+    private string GetStatusBadgeClass(AssetStatus status)
+    {
+        return status switch
+        {
+            AssetStatus.Available => "bg-success",
+            AssetStatus.Assigned => "bg-warning",
+            AssetStatus.UnderRepair => "bg-danger",
+            AssetStatus.Retired => "bg-secondary",
+            _ => "bg-light"
+        };
+    }
+
+    private string GetConditionBadgeClass(AssetCondition condition)
+    {
+        return condition switch
+        {
+            AssetCondition.New => "bg-success",
+            AssetCondition.Good => "bg-primary",
+            AssetCondition.NeedsRepair => "bg-warning",
+            AssetCondition.Damaged => "bg-danger",
+            _ => "bg-light"
+        };
+    }
+}

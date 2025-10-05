@@ -1,0 +1,329 @@
+@page "/reports"
+@using AssetManagementApp.Services
+@inject IDashboardService DashboardService
+@inject IExportService ExportService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Reports - Asset Management System</PageTitle>
+
+<h1 class="mb-4">
+    <i class="bi bi-bar-chart-fill me-2"></i>Reports & Analytics
+</h1>
+
+<!-- Export Buttons -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Data Export</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <button class="btn btn-success w-100" @onclick="ExportAssets">
+                    <i class="bi bi-download me-1"></i>Export Assets to CSV
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-info w-100" @onclick="ExportEmployees">
+                    <i class="bi bi-download me-1"></i>Export Employees to CSV
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-warning w-100" @onclick="ExportAssignments">
+                    <i class="bi bi-download me-1"></i>Export Assignments to CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Asset Distribution Charts -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Assets by Type</h5>
+                </div>
+                <div class="card-body">
+                    @if (assetTypeData.Any())
+                    {
+                        @foreach (var item in assetTypeData)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="fw-bold">@item.AssetType</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress me-3" style="width: 200px; height: 20px;">
+                                        <div class="progress-bar bg-primary" 
+                                             style="width: @(GetPercentage(item.Count, assetTypeData.Sum(x => x.Count)))%">
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-primary">@item.Count</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No data available</p>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Assets by Status</h5>
+                </div>
+                <div class="card-body">
+                    @if (assetStatusData.Any())
+                    {
+                        @foreach (var item in assetStatusData)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="fw-bold">@item.Status</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress me-3" style="width: 200px; height: 20px;">
+                                        <div class="progress-bar @GetStatusColor(item.Status)" 
+                                             style="width: @(GetPercentage(item.Count, assetStatusData.Sum(x => x.Count)))%">
+                                        </div>
+                                    </div>
+                                    <span class="badge @GetStatusBadgeColor(item.Status)">@item.Count</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No data available</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Recent Assignments</h5>
+        </div>
+        <div class="card-body">
+            @if (recentAssignments.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Asset</th>
+                                <th>Employee</th>
+                                <th>Department</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var assignment in recentAssignments)
+                            {
+                                <tr>
+                                    <td>@DateTime.Parse(assignment.AssignedDate.ToString()).ToString("MMM dd, yyyy")</td>
+                                    <td>@assignment.AssetName</td>
+                                    <td>@assignment.EmployeeName</td>
+                                    <td>@assignment.Department</td>
+                                    <td>
+                                        <span class="badge @(assignment.IsActive ? "bg-success" : "bg-secondary")">
+                                            @(assignment.IsActive ? "Active" : "Returned")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">No recent assignments</p>
+            }
+        </div>
+    </div>
+
+    <!-- Warranty Alerts -->
+    <div class="card">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0 text-dark">
+                <i class="bi bi-exclamation-triangle me-2"></i>Assets with Expiring Warranties (Next 30 Days)
+            </h5>
+        </div>
+        <div class="card-body">
+            @if (warrantyExpiringAssets.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Asset Name</th>
+                                <th>Type</th>
+                                <th>Serial Number</th>
+                                <th>Warranty Expiry</th>
+                                <th>Days Until Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var asset in warrantyExpiringAssets)
+                            {
+                                <tr class="@(asset.DaysUntilExpiry <= 7 ? "table-danger" : asset.DaysUntilExpiry <= 14 ? "table-warning" : "")">
+                                    <td>@asset.AssetName</td>
+                                    <td>@asset.AssetType</td>
+                                    <td>@asset.SerialNumber</td>
+                                    <td>@DateTime.Parse(asset.WarrantyExpiryDate.ToString()).ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        <span class="badge @(asset.DaysUntilExpiry <= 7 ? "bg-danger" : asset.DaysUntilExpiry <= 14 ? "bg-warning" : "bg-info")">
+                                            @asset.DaysUntilExpiry days
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>No assets with warranties expiring in the next 30 days!
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<dynamic> assetTypeData = new();
+    private List<dynamic> assetStatusData = new();
+    private List<dynamic> recentAssignments = new();
+    private List<dynamic> warrantyExpiringAssets = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportsData();
+    }
+
+    private async Task LoadReportsData()
+    {
+        loading = true;
+        try
+        {
+            var assetTypeTask = DashboardService.GetAssetTypeDistributionAsync();
+            var assetStatusTask = DashboardService.GetAssetStatusDistributionAsync();
+            var recentAssignmentsTask = DashboardService.GetRecentAssignmentsAsync();
+            var warrantyTask = DashboardService.GetAssetsNearingWarrantyExpiryAsync();
+
+            await Task.WhenAll(assetTypeTask, assetStatusTask, recentAssignmentsTask, warrantyTask);
+
+            assetTypeData = (await assetTypeTask).ToList();
+            assetStatusData = (await assetStatusTask).ToList();
+            recentAssignments = (await recentAssignmentsTask).ToList();
+            warrantyExpiringAssets = (await warrantyTask).ToList();
+        }
+        catch (Exception)
+        {
+            assetTypeData = new List<dynamic>();
+            assetStatusData = new List<dynamic>();
+            recentAssignments = new List<dynamic>();
+            warrantyExpiringAssets = new List<dynamic>();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ExportAssets()
+    {
+        try
+        {
+            var csvData = await ExportService.ExportAssetsToCsvAsync();
+            await DownloadFile("assets.csv", csvData);
+        }
+        catch (Exception)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Error exporting assets data.");
+        }
+    }
+
+    private async Task ExportEmployees()
+    {
+        try
+        {
+            var csvData = await ExportService.ExportEmployeesToCsvAsync();
+            await DownloadFile("employees.csv", csvData);
+        }
+        catch (Exception)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Error exporting employees data.");
+        }
+    }
+
+    private async Task ExportAssignments()
+    {
+        try
+        {
+            var csvData = await ExportService.ExportAssignmentsToCsvAsync();
+            await DownloadFile("assignments.csv", csvData);
+        }
+        catch (Exception)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Error exporting assignments data.");
+        }
+    }
+
+    private async Task DownloadFile(string filename, byte[] data)
+    {
+        var base64 = Convert.ToBase64String(data);
+        await JSRuntime.InvokeVoidAsync("downloadFile", filename, base64);
+    }
+
+    private double GetPercentage(int value, int total)
+    {
+        return total == 0 ? 0 : (double)value / total * 100;
+    }
+
+    private string GetStatusColor(dynamic status)
+    {
+        return status.ToString() switch
+        {
+            "Available" => "bg-success",
+            "Assigned" => "bg-warning",
+            "UnderRepair" => "bg-danger",
+            "Retired" => "bg-secondary",
+            _ => "bg-info"
+        };
+    }
+
+    private string GetStatusBadgeColor(dynamic status)
+    {
+        return status.ToString() switch
+        {
+            "Available" => "bg-success",
+            "Assigned" => "bg-warning text-dark",
+            "UnderRepair" => "bg-danger",
+            "Retired" => "bg-secondary",
+            _ => "bg-info"
+        };
+    }
+}

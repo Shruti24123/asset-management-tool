@@ -1,0 +1,41 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/sarveshschauhan/Documents/asset-management-application1/obj/Debug/net8.0/scopedcss/projectbundle/AssetManagementApp.bundle.scp.css",
+      "PackagePath": "staticwebassets/AssetManagementApp.bundle.scp.css"
+    },
+    {
+      "Id": "/Users/sarveshschauhan/Documents/asset-management-application1/wwwroot/app.css",
+      "PackagePath": "staticwebassets/app.css"
+    },
+    {
+      "Id": "/Users/sarveshschauhan/Documents/asset-management-application1/wwwroot/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/Users/sarveshschauhan/Documents/asset-management-application1/wwwroot/bootstrap/bootstrap.min.css.map",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css.map"
+    },
+    {
+      "Id": "/Users/sarveshschauhan/Documents/asset-management-application1/wwwroot/favicon.png",
+      "PackagePath": "staticwebassets/favicon.png"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.AssetManagementApp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.AssetManagementApp.props",
+      "PackagePath": "build\\AssetManagementApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.AssetManagementApp.props",
+      "PackagePath": "buildMultiTargeting\\AssetManagementApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.AssetManagementApp.props",
+      "PackagePath": "buildTransitive\\AssetManagementApp.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
